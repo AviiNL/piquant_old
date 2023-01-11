@@ -1,0 +1,13 @@
+[network]
+port = 25565
+max_players = 16
+description = "§bHello Valence!"
+
+[world]
+seed = ""
+view_distance = 4
+spawn.x = 0
+spawn.z = 0
+
+[gameplay]
+gamemode = "creative"

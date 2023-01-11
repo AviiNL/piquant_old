@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "piquant",
+    "piquant-command",
+    "piquant-macros",
+    "piquant-world",
+    "valence/crates/*",
+]
+
+default-members = ["piquant"]
