@@ -4,7 +4,7 @@ max_players = 16
 description = "§bHello Valence!"
 
 [world]
-seed = ""
+seed = 3660850736
 view_distance = 4
 spawn.x = 0
 spawn.z = 0

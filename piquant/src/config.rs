@@ -2,7 +2,7 @@ use std::io::Read;
 
 use serde::{Deserialize, Serialize};
 
-use piquant_world::Seed;
+use piquant_world::SeedType;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
@@ -26,7 +26,7 @@ pub struct WorldSpawn {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct World {
-    pub seed: Seed,
+    pub seed: SeedType,
     pub view_distance: u8,
     pub spawn: WorldSpawn,
 }
@@ -45,7 +45,7 @@ impl Default for Config {
                 description: "§bHello Valence!".into(),
             },
             world: World {
-                seed: Seed::FromString("".to_string()),
+                seed: SeedType::FromString("".to_string()),
                 view_distance: 8,
                 spawn: WorldSpawn { x: 0, z: 0 },
             },

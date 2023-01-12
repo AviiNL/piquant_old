@@ -17,6 +17,7 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
 
     let mut arguments: Vec<TokenStream2> = Vec::new();
     let mut client_ident = None;
+    let mut world_ident = None;
 
     // validate the types of all arguments, the can only be i64, f64, String or bool
     for arg in fn_args {
@@ -43,6 +44,11 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
                         // Client<Game> is allowed
                         if segment.ident == "Client" {
                             client_ident = Some(format_ident!("{}", var_name));
+                            continue;
+                        }
+
+                        if segment.ident == "World" {
+                            world_ident = Some(format_ident!("{}", var_name));
                             continue;
                         }
 
@@ -143,9 +149,10 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     let client_ident = client_ident.unwrap_or(format_ident!("__client"));
+    let world_ident = world_ident.unwrap_or(format_ident!("__world"));
 
     quote::quote! {
-        #fn_visiblity fn #fn_name(mut __args: ::piquant_command::Arguments, #client_ident: &mut Client<Game>) #fn_ret {
+        #fn_visiblity fn #fn_name(mut __args: ::piquant_command::Arguments, #client_ident: &mut Client<Game>, #world_ident: &mut World<Game>) #fn_ret {
             #(#arguments)*
 
             #fn_body

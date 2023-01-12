@@ -26,7 +26,8 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for Error {
     }
 }
 
-fn main() -> Result<(), Error> {
+#[tokio::main]
+async fn main() -> Result<(), Error> {
     tracing_subscriber::fmt().init();
 
     let settings = Config::load_or_create("server.toml")?;

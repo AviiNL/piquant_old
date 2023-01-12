@@ -6,10 +6,10 @@ use std::{
 use async_trait::async_trait;
 
 use piquant_command::CommandService;
-use piquant_world::{WorldGen, WorldState};
+use piquant_world::{World, WorldState};
 
 use valence::{
-    prelude::*,
+    prelude::{World as MCWorld, *},
     server::{Server, SharedServer},
 };
 
@@ -17,22 +17,23 @@ use crate::{client_state::ClientState, commands, server_state::ServerState};
 
 pub struct Game {
     player_count: AtomicUsize,
-    world_gen: WorldGen<Game>,
+    world: World<Game>,
     config: crate::config::Config,
-    commands: CommandService<Client<Game>>,
+    commands: CommandService<Client<Game>, MCWorld<Game>>,
 }
 
 impl From<crate::config::Config> for Game {
     fn from(config: crate::config::Config) -> Self {
-        let world_gen = WorldGen::new(config.world.seed.clone());
+        let world = World::new(config.world.seed.clone().into());
 
         let mut commands = CommandService::new();
 
         commands.add_command("test", commands::test);
+        commands.add_command("seed", commands::seed);
 
         Self {
             player_count: AtomicUsize::new(0),
-            world_gen,
+            world,
             config,
             commands,
         }
@@ -63,22 +64,24 @@ impl Config for Game {
         );
 
         // generate spawn area
-        self.world_gen.queue(
+        self.world.queue(
             world,
             player_spawn_point,
             self.config.world.view_distance,
             true,
         );
 
-        self.world_gen.update(world); // some kind of "progress" reporter would be nice
+        // This is taking for fucking ever now.. >_<
+        self.world.update(world); // some kind of "progress" reporter would be nice
 
         // get spawn height
-        player_spawn_point.y = match self.world_gen.get_terrain_height(world, player_spawn_point) {
+        player_spawn_point.y = match self.world.get_terrain_height(world, player_spawn_point) {
             Some(height) => height as f64 - 63.0,
             None => 0.0,
         };
 
         world.state.spawn = Some(player_spawn_point);
+        world.state.seed = Some(self.world.seed());
 
         dbg!(world.state.spawn);
     }
@@ -178,14 +181,9 @@ impl Config for Game {
 
             while let Some(event) = client.next_event() {
                 match event {
-                    ClientEvent::PlayerSession {
-                        session_id,
-                        expires_at,
-                        public_key_data,
-                        key_signature,
-                    } => {}
+                    ClientEvent::PlayerSession { .. } => {}
                     ClientEvent::ChatCommand { command, timestamp } => {
-                        match self.commands.execute(&command, client) {
+                        match self.commands.execute(&command, client, world) {
                             Ok(()) => {}
                             Err(e) => {
                                 client.send_message(format!("Error: {}", e).color(Color::RED));
@@ -208,7 +206,7 @@ impl Config for Game {
 
             let p = client.position();
 
-            self.world_gen.queue(world, p, view_distance, false);
+            self.world.queue(world, p, view_distance, false);
 
             if client.is_disconnected() {
                 println!("{} disconnected", client.username());
@@ -224,6 +222,6 @@ impl Config for Game {
             true
         });
 
-        self.world_gen.update(world);
+        self.world.update(world);
     }
 }

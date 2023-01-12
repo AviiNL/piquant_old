@@ -3,10 +3,11 @@ mod seed;
 mod world_state;
 
 pub use self::seed::Seed;
+pub use self::seed::SeedType;
 
 use noise::{NoiseFn, SuperSimplex};
 use rayon::prelude::ParallelIterator;
-use valence::{prelude::*, protocol::BlockState};
+use valence::{prelude::World as MCWorld, prelude::*, protocol::BlockState};
 use vek::Lerp;
 
 pub use chunk_state::ChunkState;
@@ -14,10 +15,11 @@ pub use world_state::WorldState;
 
 pub use chunk_state::DefaultChunkState;
 
-pub struct WorldGen<G>
+pub struct World<G>
 where
     G: Config,
 {
+    seed: Seed,
     density_noise: SuperSimplex,
     hilly_noise: SuperSimplex,
     stone_noise: SuperSimplex,
@@ -26,25 +28,36 @@ where
     _marker: std::marker::PhantomData<G>,
 }
 
-impl<G> WorldGen<G>
+impl<G> World<G>
 where
     G: Config,
     G::ChunkState: ChunkState + Send + Sync,
 {
     pub fn new(seed: Seed) -> Self {
-        let seed: u32 = seed.into();
+        let seed_u32: u32 = seed.get();
 
         Self {
-            density_noise: SuperSimplex::new(seed),
-            hilly_noise: SuperSimplex::new(seed.wrapping_add(1)),
-            stone_noise: SuperSimplex::new(seed.wrapping_add(2)),
-            gravel_noise: SuperSimplex::new(seed.wrapping_add(3)),
-            grass_noise: SuperSimplex::new(seed.wrapping_add(4)),
+            seed,
+            density_noise: SuperSimplex::new(seed_u32),
+            hilly_noise: SuperSimplex::new(seed_u32.wrapping_add(1)),
+            stone_noise: SuperSimplex::new(seed_u32.wrapping_add(2)),
+            gravel_noise: SuperSimplex::new(seed_u32.wrapping_add(3)),
+            grass_noise: SuperSimplex::new(seed_u32.wrapping_add(4)),
             _marker: std::marker::PhantomData,
         }
     }
 
-    pub fn queue(&self, world: &mut World<G>, position: Vec3<f64>, distance: u8, persistant: bool) {
+    pub fn seed(&self) -> Seed {
+        self.seed.clone()
+    }
+
+    pub fn queue(
+        &self,
+        world: &mut MCWorld<G>,
+        position: Vec3<f64>,
+        distance: u8,
+        persistant: bool,
+    ) {
         for pos in ChunkPos::at(position.x, position.z).in_view(distance) {
             if let Some(chunk) = world.chunks.get_mut(pos) {
                 chunk.state.load();
@@ -58,7 +71,7 @@ where
         }
     }
 
-    pub fn get_terrain_height(&self, world: &World<G>, position: Vec3<f64>) -> Option<i32> {
+    pub fn get_terrain_height(&self, world: &MCWorld<G>, position: Vec3<f64>) -> Option<i32> {
         let chunk_pos = ChunkPos::at(position.x, position.z);
 
         let chunk = match world.chunks.get(chunk_pos) {
@@ -78,7 +91,7 @@ where
         None
     }
 
-    pub fn update(&self, world: &mut World<G>) {
+    pub fn update(&self, world: &mut MCWorld<G>) {
         // Remove chunks outside the view distance of players.
         for (_, chunk) in world.chunks.iter_mut() {
             if !chunk.state.persistant() {
@@ -153,7 +166,7 @@ where
 }
 
 fn terrain_column<G: Config>(
-    wg: &WorldGen<G>,
+    wg: &World<G>,
     x: i64,
     y: i64,
     z: i64,
@@ -210,7 +223,7 @@ fn terrain_column<G: Config>(
     }
 }
 
-fn has_terrain_at<G: Config>(wg: &WorldGen<G>, x: i64, y: i64, z: i64) -> bool {
+fn has_terrain_at<G: Config>(wg: &World<G>, x: i64, y: i64, z: i64) -> bool {
     let hilly = Lerp::lerp_unclamped(
         0.1,
         1.0,

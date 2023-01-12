@@ -2,25 +2,26 @@ use std::collections::HashMap;
 
 use crate::{parse, Command};
 
-pub struct CommandService<C> {
-    commands: HashMap<String, Command<C>>,
+pub struct CommandService<C, W> {
+    commands: HashMap<String, Command<C, W>>,
 }
 
-impl<C> CommandService<C> {
+impl<C, W> CommandService<C, W> {
     pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
         }
     }
 
-    pub fn add_command(&mut self, name: &str, command: Command<C>) {
+    pub fn add_command(&mut self, name: &str, command: Command<C, W>) {
         self.commands.insert(name.to_string(), command);
     }
 
     pub fn execute(
         &self,
         input: &str,
-        client: &mut C, // this project is unaware of Client and Game... how can i pass it along?
+        client: &mut C,
+        world: &mut W,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (cmd, args) = parse(input)?;
 
@@ -32,7 +33,7 @@ impl<C> CommandService<C> {
         // args.push_back(Argument::Client(client));
 
         if let Some(command) = self.commands.get(&cmd) {
-            command(args, client)
+            command(args, client, world)
         } else {
             Err("Command not found".into())
         }
