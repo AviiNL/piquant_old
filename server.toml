@@ -1,11 +1,13 @@
 [network]
 port = 25565
 max_players = 16
-description = "§bHello Valence!"
+description = "§bHello Piquant!"
 
 [world]
+name = "world"
 seed = 3660850736
-view_distance = 32
+view_distance = 4
+chunk_unload_delay = 30
 spawn.x = 0
 spawn.z = 0
 

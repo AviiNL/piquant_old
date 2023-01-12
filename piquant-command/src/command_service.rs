@@ -17,8 +17,10 @@ impl<G, C, W> CommandService<G, C, W> {
         }
     }
 
-    pub fn add_command(&mut self, name: &str, command_def: CommandDef, command: Command<G, C, W>) {
-        self.commands.insert(name.to_string(), command);
+    pub fn add_command(&mut self, command_def: CommandDef, command: Command<G, C, W>) {
+        let name = command_def.name.to_string();
+
+        self.commands.insert(name, command);
         self.command_stack.register(command_def);
     }
 

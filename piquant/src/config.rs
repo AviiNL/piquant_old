@@ -28,6 +28,7 @@ pub struct WorldSpawn {
 pub struct World {
     pub seed: SeedType,
     pub view_distance: u8,
+    pub chunk_unload_delay: u64,
     pub spawn: WorldSpawn,
 }
 
@@ -42,11 +43,12 @@ impl Default for Config {
             network: Network {
                 port: 25565,
                 max_players: 16,
-                description: "§bHello Valence!".into(),
+                description: "§bHello Piquant!".into(),
             },
             world: World {
                 seed: SeedType::FromString("".to_string()),
                 view_distance: 8,
+                chunk_unload_delay: 30,
                 spawn: WorldSpawn { x: 0, z: 0 },
             },
             gameplay: Gameplay {

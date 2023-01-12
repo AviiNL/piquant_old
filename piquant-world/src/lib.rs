@@ -20,6 +20,7 @@ where
     G: Config,
 {
     seed: Seed,
+    chunk_unload_delay: u64,
     density_noise: SuperSimplex,
     hilly_noise: SuperSimplex,
     stone_noise: SuperSimplex,
@@ -33,11 +34,12 @@ where
     G: Config,
     G::ChunkState: ChunkState + Send + Sync,
 {
-    pub fn new(seed: Seed) -> Self {
+    pub fn new(seed: Seed, chunk_unload_delay: u64) -> Self {
         let seed_u32: u32 = seed.get();
 
         Self {
             seed,
+            chunk_unload_delay,
             density_noise: SuperSimplex::new(seed_u32),
             hilly_noise: SuperSimplex::new(seed_u32.wrapping_add(1)),
             stone_noise: SuperSimplex::new(seed_u32.wrapping_add(2)),
@@ -59,13 +61,15 @@ where
         persistant: bool,
     ) {
         for pos in ChunkPos::at(position.x, position.z).in_view(distance) {
+            let now = std::time::Instant::now();
+
             if let Some(chunk) = world.chunks.get_mut(pos) {
-                chunk.state.load();
+                chunk.state.touch(now);
             } else {
                 world.chunks.insert(
                     pos,
                     UnloadedChunk::default(),
-                    G::ChunkState::new(true, persistant),
+                    G::ChunkState::new(now, persistant),
                 );
             }
         }
@@ -95,8 +99,9 @@ where
         // Remove chunks outside the view distance of players.
         for (_, chunk) in world.chunks.iter_mut() {
             if !chunk.state.persistant() {
-                chunk.set_deleted(!chunk.state.keep_loaded());
-                chunk.state.unload();
+                if chunk.last_touched().elapsed().as_secs() > self.chunk_unload_delay {
+                    chunk.set_deleted(true);
+                }
             }
         }
 

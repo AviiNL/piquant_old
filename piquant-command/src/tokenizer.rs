@@ -34,7 +34,7 @@ pub(crate) fn tokenize(input: &str) -> VecDeque<Token> {
                 tokens.push_back(Token::String(string));
             }
             // Integers and floats are a sequence of digits and optionally a single decimal point.
-            '0'..='9' | '.' => {
+            '0'..='9' | '.' | '-' => {
                 let mut number = String::new();
                 number.push(c);
 

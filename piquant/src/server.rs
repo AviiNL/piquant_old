@@ -25,12 +25,17 @@ pub struct Game {
 
 impl Game {
     pub fn new(config: crate::config::Config) -> Self {
-        let world = World::new(config.world.seed.clone().into());
+        let world = World::new(
+            config.world.seed.clone().into(),
+            config.world.chunk_unload_delay,
+        );
 
         let mut commands = CommandService::new();
 
-        commands.add_command("test", commands::test_def(), commands::test);
-        commands.add_command("seed", commands::seed_def(), commands::seed);
+        commands.add_command(commands::test_def(), commands::test);
+        commands.add_command(commands::seed_def(), commands::seed);
+        commands.add_command(commands::gamemode_def(), commands::gamemode);
+        commands.add_command(commands::setblock_def(), commands::setblock);
 
         Self {
             player_count: AtomicUsize::new(0),
@@ -50,6 +55,10 @@ impl Config for Game {
     type ChunkState = piquant_world::DefaultChunkState;
     type PlayerListState = ();
     type InventoryState = ();
+
+    fn connection_mode(&self) -> ConnectionMode {
+        ConnectionMode::Online
+    }
 
     fn init(&self, server: &mut Server<Self>) {
         server.state.player_lists = Some(server.player_lists.insert(()).0);
@@ -150,7 +159,7 @@ impl Config for Game {
                 client.respawn(world_id);
                 client.set_flat(true);
 
-                // TODO: Figure out structure for command stuff
+                // client.queue_packet(&valence::protocol::packets::s2c::login::)
 
                 let (root_id, commands) = self.commands.get_command_defs();
                 client.queue_packet(&valence::protocol::packets::s2c::play::Commands {
@@ -164,6 +173,8 @@ impl Config for Game {
 
                 client.teleport([spawn.x, spawn.y, spawn.z], 0.0, 0.0);
                 client.set_player_list(server.state.player_lists.clone());
+
+                // client.player_mut().
 
                 if let Some(id) = &server.state.player_lists {
                     server.player_lists[id].insert(
@@ -182,18 +193,17 @@ impl Config for Game {
             while let Some(event) = client.next_event() {
                 match event {
                     ClientEvent::PlayerSession { .. } => {}
-                    ClientEvent::ChatCommand { command, timestamp } => {
-                        match self.commands.execute(&command, self, client, world) {
-                            Ok(()) => {}
-                            Err(e) => {
-                                client.send_message(format!("Error: {}", e).color(Color::RED));
-                            }
+                    ClientEvent::ChatMessage { message, timestamp } => {
+                        server.state.message_queue.queue_chat(
+                            client.username(),
+                            message.to_string(),
+                            timestamp,
+                        );
+                    }
+                    ClientEvent::ChatCommand { command, .. } => {
+                        if let Err(e) = self.commands.execute(&command, self, client, world) {
+                            client.send_message(format!("Error: {}", e).color(Color::RED));
                         }
-
-                        // TODO: the command needs to get executed here!
-                        // self.commands.execute(client, command, args); ??
-
-                        println!("[{}] {}: /{}", timestamp, client.username(), command);
                     }
                     _ => event.handle_default(client, player),
                 }
@@ -221,6 +231,12 @@ impl Config for Game {
 
             true
         });
+
+        while let Some(message) = server.state.message_queue.pop_front() {
+            server.clients.iter_mut().for_each(|(_id, client)| {
+                client.send_message(message.clone());
+            });
+        }
 
         self.world.update(world);
     }

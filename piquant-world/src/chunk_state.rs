@@ -1,42 +1,48 @@
+use std::time::Instant;
+
 pub trait ChunkState {
-    fn new(keep_loaded: bool, persistant: bool) -> Self
+    fn new(current_time: Instant, persistant: bool) -> Self
     where
         Self: Sized + Sync + Send;
-    fn keep_loaded(&self) -> bool;
     fn persistant(&self) -> bool;
-    fn load(&mut self);
-    fn unload(&mut self);
+    fn touch(&mut self, current_time: Instant);
+    fn last_touched(&self) -> Instant;
 }
 
 // send and sync are required for the chunk state to be used in a par_iter_mut.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 pub struct DefaultChunkState {
-    keep_loaded: bool,
+    last_touched: Instant,
     persistant: bool,
 }
 
-impl ChunkState for DefaultChunkState {
-    fn new(keep_loaded: bool, persistant: bool) -> Self {
+impl Default for DefaultChunkState {
+    fn default() -> Self {
         Self {
-            keep_loaded,
-            persistant,
+            last_touched: Instant::now(),
+            persistant: false,
         }
     }
+}
 
-    fn keep_loaded(&self) -> bool {
-        self.keep_loaded
+impl ChunkState for DefaultChunkState {
+    fn new(current_time: Instant, persistant: bool) -> Self {
+        Self {
+            last_touched: current_time,
+            persistant,
+        }
     }
 
     fn persistant(&self) -> bool {
         self.persistant
     }
 
-    fn load(&mut self) {
-        self.keep_loaded = true;
+    fn touch(&mut self, current_time: Instant) {
+        self.last_touched = current_time;
     }
 
-    fn unload(&mut self) {
-        self.keep_loaded = false;
+    fn last_touched(&self) -> Instant {
+        self.last_touched
     }
 }
 

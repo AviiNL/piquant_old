@@ -1,9 +1,10 @@
+mod chat;
+
 mod client_state;
 mod commands;
 mod config;
 mod server;
 mod server_state;
-
 use config::Config;
 use server::Game;
 use server_state::ServerState;

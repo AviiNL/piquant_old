@@ -69,6 +69,21 @@ impl AnvilWorld {
         }
     }
 
+    pub fn write_chunk(&self, chunk_x: i32, chunk_z: i32) {
+        let region_x = chunk_x.div_euclid(32);
+        let region_z = chunk_z.div_euclid(32);
+
+        if let Some(oe) = self.regions.get(&(region_x, region_z)) {
+            // save oe to file
+
+            let mut buffer: Vec<u8> = Vec::new();
+
+            buffer.extend_from_slice(&oe.header);
+
+            // do more stuff
+        };
+    }
+
     /// Reads a chunk from the file system with the given chunk coordinates. If
     /// no chunk exists at the position, then `None` is returned.
     pub fn read_chunk(

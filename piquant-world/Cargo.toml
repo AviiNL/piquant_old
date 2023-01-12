@@ -13,3 +13,4 @@ tracing-subscriber = "0.3.16"
 vek = "0.15.9"
 serde = { version = "1.0.152", features = ["derive"] }
 valence = { path = "../valence/crates/valence" }
+valence_anvil = { path = "../valence/crates/valence_anvil" }

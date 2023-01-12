@@ -5,9 +5,12 @@ use valence::{
     protocol::BlockPos,
 };
 
+use crate::chat::MessageQueue;
+
 pub struct ServerState {
     pub player_lists: Option<PlayerListId>,
     pub inventories: BTreeMap<BlockPos, InventoryId>,
+    pub message_queue: MessageQueue,
 }
 
 impl ServerState {
@@ -15,6 +18,7 @@ impl ServerState {
         Self {
             player_lists: None,
             inventories: BTreeMap::new(),
+            message_queue: MessageQueue::new(),
         }
     }
 }
