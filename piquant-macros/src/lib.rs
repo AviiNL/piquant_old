@@ -4,6 +4,18 @@ use proc_macro2::TokenTree::Literal;
 use quote::format_ident;
 use syn::{parse_macro_input, ItemFn};
 
+fn parse_type(ident: &proc_macro2::Ident) -> String {
+    let ident = ident.to_string();
+
+    match ident.as_str() {
+        "i64" => "Integer".to_string(),
+        "f64" => "Float".to_string(),
+        "String" => "String".to_string(),
+        "bool" => "Boolean".to_string(),
+        _ => "Unknown Type".to_string(),
+    }
+}
+
 #[proc_macro_attribute]
 pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemFn);
@@ -43,6 +55,7 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
     let fn_args = fn_args.iter().clone();
 
     let mut arguments: Vec<TokenStream2> = Vec::new();
+    let mut arg_defs: Vec<TokenStream2> = Vec::new();
     let mut client_ident = None;
     let mut world_ident = None;
     let mut game_ident = None;
@@ -85,9 +98,13 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
                             continue;
                         }
 
+                        // extract the type name as string from p
+                        let mut type_name = parse_type(&segment.ident);
+
                         // check if it's an Option
                         if segment.ident == "Option" {
                             is_optional = true;
+
                             match segment.arguments {
                                 syn::PathArguments::AngleBracketed(ref a) => {
                                     if a.args.len() != 1 {
@@ -109,11 +126,9 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
 
                                                 let segment = &path.segments[0];
 
-                                                if segment.ident != "i64"
-                                                    && segment.ident != "f64"
-                                                    && segment.ident != "String"
-                                                    && segment.ident != "bool"
-                                                {
+                                                type_name = parse_type(&segment.ident);
+
+                                                if type_name == "Unknown Type" {
                                                     panic!(
                                                         "Invalid argument type {}",
                                                         segment.ident
@@ -127,12 +142,8 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
                                 }
                                 _ => panic!("Invalid argument type, must be an angle bracketed"),
                             }
-                        } else if segment.ident != "i64"
-                            && segment.ident != "f64"
-                            && segment.ident != "String"
-                            && segment.ident != "bool"
-                            && segment.ident != "Client"
-                        {
+                        }
+                        if type_name == "Unknown Type" {
                             panic!("Invalid argument type {}", segment.ident);
                         }
 
@@ -140,14 +151,13 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
 
                         let mut a = quote::quote! {};
 
-                        // extract the type name as string from p
-                        let type_name = match segment.ident.to_string().as_str() {
-                            "i64" => "Integer",
-                            "f64" => "Float",
-                            "String" => "String",
-                            "bool" => "Boolean",
-                            _ => "Unknown Type",
-                        };
+                        arg_defs.push(quote::quote! {
+                            ::piquant_command::ArgumentDef {
+                                name: #var_name,
+                                ty: #type_name,
+                                optional: #is_optional,
+                            }
+                        });
 
                         if is_optional {
                             a.extend(quote::quote! {
@@ -210,9 +220,11 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
 
         pub fn #register_fn() -> ::piquant_command::CommandDef {
             ::piquant_command::CommandDef {
-                name: #fn_name_str.to_string(),
+                name: #fn_name_str,
                 description: #q,
-                arguments: vec![],
+                arguments: vec![
+                    #(#arg_defs),*
+                ],
             }
         }
     }

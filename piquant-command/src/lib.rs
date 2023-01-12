@@ -1,4 +1,5 @@
 mod command_service;
+mod command_stack;
 mod parser;
 mod tokenizer;
 
@@ -15,14 +16,14 @@ pub type Command<G, C, W> =
 
 #[derive(Debug)]
 pub struct ArgumentDef {
-    pub name: String,
-    pub ty: String,
+    pub name: &'static str,
+    pub ty: &'static str,
     pub optional: bool,
 }
 
 #[derive(Debug)]
 pub struct CommandDef {
-    pub name: String,
+    pub name: &'static str,
     pub description: Option<String>,
     pub arguments: Vec<ArgumentDef>,
 }

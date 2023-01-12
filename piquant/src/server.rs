@@ -10,6 +10,7 @@ use piquant_world::{World, WorldState};
 
 use valence::{
     prelude::{World as MCWorld, *},
+    protocol::VarInt,
     server::{Server, SharedServer},
 };
 
@@ -28,11 +29,8 @@ impl Game {
 
         let mut commands = CommandService::new();
 
-        dbg!(&commands::test_def());
-        dbg!(&commands::seed_def());
-
-        commands.add_command("test", commands::test);
-        commands.add_command("seed", commands::seed);
+        commands.add_command("test", commands::test_def(), commands::test);
+        commands.add_command("seed", commands::seed_def(), commands::seed);
 
         Self {
             player_count: AtomicUsize::new(0),
@@ -154,11 +152,11 @@ impl Config for Game {
 
                 // TODO: Figure out structure for command stuff
 
-                // let (root_id, commands) = self.commands.list();
-                // client.queue_packet(&valence::protocol::packets::s2c::play::Commands {
-                //     commands,
-                //     root_index: VarInt(root_id),
-                // });
+                let (root_id, commands) = self.commands.get_command_defs();
+                client.queue_packet(&valence::protocol::packets::s2c::play::Commands {
+                    commands,
+                    root_index: VarInt(root_id),
+                });
 
                 // make a string slice from self.gamemode
                 let gamemode = self.config.gameplay.gamemode.clone();
