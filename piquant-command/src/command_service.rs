@@ -2,24 +2,25 @@ use std::collections::HashMap;
 
 use crate::{parse, Command};
 
-pub struct CommandService<C, W> {
-    commands: HashMap<String, Command<C, W>>,
+pub struct CommandService<G, C, W> {
+    commands: HashMap<String, Command<G, C, W>>,
 }
 
-impl<C, W> CommandService<C, W> {
+impl<G, C, W> CommandService<G, C, W> {
     pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
         }
     }
 
-    pub fn add_command(&mut self, name: &str, command: Command<C, W>) {
+    pub fn add_command(&mut self, name: &str, command: Command<G, C, W>) {
         self.commands.insert(name.to_string(), command);
     }
 
     pub fn execute(
         &self,
         input: &str,
+        game: &G,
         client: &mut C,
         world: &mut W,
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -33,7 +34,7 @@ impl<C, W> CommandService<C, W> {
         // args.push_back(Argument::Client(client));
 
         if let Some(command) = self.commands.get(&cmd) {
-            command(args, client, world)
+            command(args, game, client, world)
         } else {
             Err("Command not found".into())
         }

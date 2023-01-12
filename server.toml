@@ -5,7 +5,7 @@ description = "§bHello Valence!"
 
 [world]
 seed = 3660850736
-view_distance = 4
+view_distance = 32
 spawn.x = 0
 spawn.z = 0
 

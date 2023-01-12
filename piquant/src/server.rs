@@ -19,14 +19,17 @@ pub struct Game {
     player_count: AtomicUsize,
     world: World<Game>,
     config: crate::config::Config,
-    commands: CommandService<Client<Game>, MCWorld<Game>>,
+    commands: CommandService<Game, Client<Game>, MCWorld<Game>>,
 }
 
-impl From<crate::config::Config> for Game {
-    fn from(config: crate::config::Config) -> Self {
+impl Game {
+    pub fn new(config: crate::config::Config) -> Self {
         let world = World::new(config.world.seed.clone().into());
 
         let mut commands = CommandService::new();
+
+        dbg!(&commands::test_def());
+        dbg!(&commands::seed_def());
 
         commands.add_command("test", commands::test);
         commands.add_command("seed", commands::seed);
@@ -71,7 +74,6 @@ impl Config for Game {
             true,
         );
 
-        // This is taking for fucking ever now.. >_<
         self.world.update(world); // some kind of "progress" reporter would be nice
 
         // get spawn height
@@ -183,7 +185,7 @@ impl Config for Game {
                 match event {
                     ClientEvent::PlayerSession { .. } => {}
                     ClientEvent::ChatCommand { command, timestamp } => {
-                        match self.commands.execute(&command, client, world) {
+                        match self.commands.execute(&command, self, client, world) {
                             Ok(()) => {}
                             Err(e) => {
                                 client.send_message(format!("Error: {}", e).color(Color::RED));

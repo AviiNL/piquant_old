@@ -3,6 +3,8 @@ use valence::prelude::{Client, World};
 
 use crate::server::Game;
 
+/// A simple test command
+/// * `str`: An optional string to print
 #[command]
 pub fn test(client: Client<Game>, str: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
     println!("Hello, {}!", client.username());

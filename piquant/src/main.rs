@@ -32,7 +32,7 @@ async fn main() -> Result<(), Error> {
 
     let settings = Config::load_or_create("server.toml")?;
 
-    valence::start_server(Game::from(settings), ServerState::new())?;
+    valence::start_server(Game::new(settings), ServerState::new())?;
 
     Ok(())
 }

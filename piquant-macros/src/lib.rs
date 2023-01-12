@@ -1,5 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::TokenTree::Literal;
 use quote::format_ident;
 use syn::{parse_macro_input, ItemFn};
 
@@ -13,11 +14,38 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
     let fn_ret = &input.sig.output;
     let fn_body = &input.block;
 
+    let fn_doc_attributes: &Vec<syn::Attribute> = &input
+        .attrs
+        .iter()
+        .filter(|attr| attr.path.is_ident("doc"))
+        .cloned()
+        .collect();
+
+    let fn_doc = fn_doc_attributes
+        .iter()
+        .map(|attr| {
+            let tokens = attr.tokens.clone();
+
+            for token in tokens {
+                if let Literal(str) = token {
+                    let str = str.to_string();
+                    // remove surrounding doublequotes
+                    let str = str.trim_end_matches('"').trim_start_matches('"').trim();
+                    return Some(String::from(str));
+                }
+            }
+            None
+        })
+        .filter(|lit| lit.is_some())
+        .map(|a| a.unwrap().to_string())
+        .collect::<Vec<String>>();
+
     let fn_args = fn_args.iter().clone();
 
     let mut arguments: Vec<TokenStream2> = Vec::new();
     let mut client_ident = None;
     let mut world_ident = None;
+    let mut game_ident = None;
 
     // validate the types of all arguments, the can only be i64, f64, String or bool
     for arg in fn_args {
@@ -40,6 +68,11 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
                             syn::Pat::Ident(i) => i.ident.to_string(),
                             _ => panic!("Invalid argument name"),
                         };
+
+                        if segment.ident == "Game" {
+                            game_ident = Some(format_ident!("{}", var_name));
+                            continue;
+                        }
 
                         // Client<Game> is allowed
                         if segment.ident == "Client" {
@@ -148,14 +181,39 @@ pub fn command(_: TokenStream, input: TokenStream) -> TokenStream {
         }
     }
 
+    let game_ident = game_ident.unwrap_or(format_ident!("__game"));
     let client_ident = client_ident.unwrap_or(format_ident!("__client"));
     let world_ident = world_ident.unwrap_or(format_ident!("__world"));
 
+    let register_fn = format_ident!("{}_def", fn_name);
+
+    let description = fn_doc.first().map(|s| s.to_string());
+
+    let fn_name_str = fn_name.to_string();
+
+    let q = if description.is_some() {
+        quote::quote! {
+            Some(#description.to_string())
+        }
+    } else {
+        quote::quote! {
+            None
+        }
+    };
+
     quote::quote! {
-        #fn_visiblity fn #fn_name(mut __args: ::piquant_command::Arguments, #client_ident: &mut Client<Game>, #world_ident: &mut World<Game>) #fn_ret {
+        #fn_visiblity fn #fn_name(mut __args: ::piquant_command::Arguments, #game_ident: &Game, #client_ident: &mut Client<Game>, #world_ident: &mut World<Game>) #fn_ret {
             #(#arguments)*
 
             #fn_body
+        }
+
+        pub fn #register_fn() -> ::piquant_command::CommandDef {
+            ::piquant_command::CommandDef {
+                name: #fn_name_str.to_string(),
+                description: #q,
+                arguments: vec![],
+            }
         }
     }
     .into()

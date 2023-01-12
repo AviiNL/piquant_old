@@ -1285,6 +1285,9 @@ dependencies = [
 [[package]]
 name = "piquant-command"
 version = "0.1.0"
+dependencies = [
+ "valence_protocol",
+]
 
 [[package]]
 name = "piquant-macros"
