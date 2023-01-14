@@ -27,6 +27,7 @@ pub struct WorldSpawn {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct World {
     pub seed: SeedType,
+    pub name: String,
     pub view_distance: u8,
     pub chunk_unload_delay: u64,
     pub spawn: WorldSpawn,
@@ -47,6 +48,7 @@ impl Default for Config {
             },
             world: World {
                 seed: SeedType::FromString("".to_string()),
+                name: "world".into(),
                 view_distance: 8,
                 chunk_unload_delay: 30,
                 spawn: WorldSpawn { x: 0, z: 0 },

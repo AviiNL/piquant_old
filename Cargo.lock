@@ -1303,13 +1303,17 @@ dependencies = [
 name = "piquant-world"
 version = "0.1.0"
 dependencies = [
+ "byteorder",
+ "flate2",
  "noise",
  "rand 0.8.5",
  "rayon",
  "serde",
+ "thiserror",
  "tracing-subscriber",
  "valence",
  "valence_anvil",
+ "valence_nbt",
  "vek",
 ]
 

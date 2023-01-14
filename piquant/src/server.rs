@@ -1,12 +1,13 @@
 use std::{
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    path::PathBuf,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
 use async_trait::async_trait;
 
 use piquant_command::CommandService;
-use piquant_world::{World, WorldState};
+use piquant_world::{PiquantWorld, World, WorldState};
 
 use valence::{
     prelude::{World as MCWorld, *},
@@ -51,7 +52,7 @@ impl Config for Game {
     type ServerState = ServerState;
     type ClientState = ClientState;
     type EntityState = ();
-    type WorldState = piquant_world::WorldState;
+    type WorldState = piquant_world::PiquantWorld;
     type ChunkState = piquant_world::DefaultChunkState;
     type PlayerListState = ();
     type InventoryState = ();
@@ -63,9 +64,21 @@ impl Config for Game {
     fn init(&self, server: &mut Server<Self>) {
         server.state.player_lists = Some(server.player_lists.insert(()).0);
 
-        let (_, world) = server
-            .worlds
-            .insert(DimensionId::default(), WorldState::new());
+        let world_folder = format!("worlds/{}", self.config.world.name);
+
+        let mut world_state = PiquantWorld::new(world_folder);
+
+        match world_state.read_all() {
+            Ok(_) => {}
+            Err(e) => {
+                println!("Error reading region: {}", e);
+                std::process::exit(1);
+            }
+        }
+
+        world_state.read_spawnpoint().unwrap();
+
+        let (_, world) = server.worlds.insert(DimensionId::default(), world_state);
 
         let mut player_spawn_point = Vec3::new(
             self.config.world.spawn.x as f64 + 0.5,
@@ -83,14 +96,16 @@ impl Config for Game {
 
         self.world.update(world); // some kind of "progress" reporter would be nice
 
-        // get spawn height
-        player_spawn_point.y = match self.world.get_terrain_height(world, player_spawn_point) {
-            Some(height) => height as f64 - 63.0,
-            None => 0.0,
-        };
+        if world.state.spawn.is_none() {
+            // get spawn height
+            player_spawn_point.y = match self.world.get_terrain_height(world, player_spawn_point) {
+                Some(height) => height as f64 - 63.0,
+                None => 0.0,
+            };
 
-        world.state.spawn = Some(player_spawn_point);
-        world.state.seed = Some(self.world.seed());
+            world.state.spawn = Some(player_spawn_point);
+            world.state.seed = Some(self.world.seed());
+        }
 
         dbg!(world.state.spawn);
     }

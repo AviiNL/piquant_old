@@ -14,6 +14,7 @@ pub use chunk_state::ChunkState;
 pub use world_state::WorldState;
 
 pub use chunk_state::DefaultChunkState;
+pub use world_state::PiquantWorld;
 
 pub struct World<G>
 where
@@ -33,6 +34,7 @@ impl<G> World<G>
 where
     G: Config,
     G::ChunkState: ChunkState + Send + Sync,
+    G::WorldState: WorldState + Send + Sync,
 {
     pub fn new(seed: Seed, chunk_unload_delay: u64) -> Self {
         let seed_u32: u32 = seed.get();
@@ -111,62 +113,84 @@ where
                 return;
             }
 
-            for z in 0..16 {
-                for x in 0..16 {
-                    let block_x = x as i64 + pos.x as i64 * 16;
-                    let block_z = z as i64 + pos.z as i64 * 16;
+            // try to read chunk from file,
+            // if it doesn't exist, generate it
 
-                    let mut in_terrain = false;
-                    let mut depth = 0;
+            match world.state.read_chunk(pos.x, pos.z) {
+                Ok(Some(anvil_chunk)) => {
+                    if let Err(e) = valence_anvil::to_valence(&anvil_chunk.data, chunk, 4, |_| {
+                        BiomeId::default()
+                    }) {
+                        eprintln!("Failed to convert chunk at ({}, {}): {e}", pos.x, pos.z);
+                    }
+                }
+                Ok(None) => {
+                    // No chunk at this position.
+                    self.generate_chunk(pos, chunk);
+                }
+                Err(_) => {
+                    self.generate_chunk(pos, chunk);
+                }
+            }
+        });
+    }
 
-                    for y in (0..chunk.section_count() * 16).rev() {
-                        if y == 0 {
-                            chunk.set_block_state(x, y, z, BlockState::BEDROCK);
-                            continue;
-                        }
+    fn generate_chunk(&self, pos: ChunkPos, chunk: &mut LoadedChunk<G>) {
+        for z in 0..16 {
+            for x in 0..16 {
+                let block_x = x as i64 + pos.x as i64 * 16;
+                let block_z = z as i64 + pos.z as i64 * 16;
 
-                        let b = terrain_column(
-                            self,
-                            block_x,
-                            y as i64,
-                            block_z,
-                            &mut in_terrain,
-                            &mut depth,
-                        );
-                        chunk.set_block_state(x, y, z, b);
+                let mut in_terrain = false;
+                let mut depth = 0;
+
+                for y in (0..chunk.section_count() * 16).rev() {
+                    if y == 0 {
+                        chunk.set_block_state(x, y, z, BlockState::BEDROCK);
+                        continue;
                     }
 
-                    // Add grass
-                    for y in (1..chunk.section_count() * 16).rev() {
-                        if chunk.block_state(x, y, z).is_air()
-                            && chunk.block_state(x, y - 1, z) == BlockState::GRASS_BLOCK
-                        {
-                            let density = fbm(
-                                &self.grass_noise,
-                                [block_x, y as i64, block_z].map(|a| a as f64 / 5.0),
-                                4,
-                                2.0,
-                                0.7,
-                            );
+                    let b = terrain_column(
+                        self,
+                        block_x,
+                        y as i64,
+                        block_z,
+                        &mut in_terrain,
+                        &mut depth,
+                    );
+                    chunk.set_block_state(x, y, z, b);
+                }
 
-                            if density > 0.55 {
-                                if density > 0.7 && chunk.block_state(x, y + 1, z).is_air() {
-                                    let upper = BlockState::TALL_GRASS
-                                        .set(PropName::Half, PropValue::Upper);
-                                    let lower = BlockState::TALL_GRASS
-                                        .set(PropName::Half, PropValue::Lower);
+                // Add grass
+                for y in (1..chunk.section_count() * 16).rev() {
+                    if chunk.block_state(x, y, z).is_air()
+                        && chunk.block_state(x, y - 1, z) == BlockState::GRASS_BLOCK
+                    {
+                        let density = fbm(
+                            &self.grass_noise,
+                            [block_x, y as i64, block_z].map(|a| a as f64 / 5.0),
+                            4,
+                            2.0,
+                            0.7,
+                        );
 
-                                    chunk.set_block_state(x, y + 1, z, upper);
-                                    chunk.set_block_state(x, y, z, lower);
-                                } else {
-                                    chunk.set_block_state(x, y, z, BlockState::GRASS);
-                                }
+                        if density > 0.55 {
+                            if density > 0.7 && chunk.block_state(x, y + 1, z).is_air() {
+                                let upper =
+                                    BlockState::TALL_GRASS.set(PropName::Half, PropValue::Upper);
+                                let lower =
+                                    BlockState::TALL_GRASS.set(PropName::Half, PropValue::Lower);
+
+                                chunk.set_block_state(x, y + 1, z, upper);
+                                chunk.set_block_state(x, y, z, lower);
+                            } else {
+                                chunk.set_block_state(x, y, z, BlockState::GRASS);
                             }
                         }
                     }
                 }
             }
-        });
+        }
     }
 }
 
